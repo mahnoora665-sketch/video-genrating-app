@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Reel — Text to video</title>
+<script src="https://sdk.minepi.com/pi-sdk.js"></script>
+<style>
+  :root{
+    --ink:#14121f;
+    --paper:#0e0c17;
+    --card:#1a1729;
+    --line:#2c283f;
+    --violet:#8b7bf7;
+    --violet-deep:#5b4fc4;
+    --amber:#f7b955;
+    --muted:#8d88a6;
+    --text:#f1eefc;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Segoe UI', system-ui, sans-serif;
+    background:var(--paper);
+    color:var(--text);
+    min-height:100vh;
+    padding-bottom:30px;
+  }
+  .header{
+    background:linear-gradient(135deg, #241f3d, #14121f);
+    padding:20px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .wordmark{font-size:21px; font-weight:800; letter-spacing:-0.3px;}
+  .wordmark span{color:var(--violet);}
+  .header-sub{font-size:11px; color:var(--muted); margin-top:3px;}
+
+  .pi-box{
+    display:none;
+    align-items:center; gap:6px;
+    background:rgba(139,123,247,0.15);
+    border:1px solid var(--violet);
+    border-radius:20px;
+    padding:5px 12px 5px 6px;
+    font-size:12px; font-weight:700;
+  }
+  .pi-avatar{
+    width:22px; height:22px; border-radius:50%;
+    background:var(--amber); color:#1a1303;
+    display:flex; align-items:center; justify-content:center; font-size:12px;
+  }
+
+  .signin-card{
+    margin:18px 16px 0;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:18px;
+    text-align:center;
+  }
+  .signin-card p{font-size:13px; color:var(--muted); margin:6px 0 14px;}
+  .btn{
+    font-family:inherit;
+    border:none;
+    border-radius:8px;
+    padding:12px 18px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .btn-violet{background:var(--violet); color:#fff;}
+  .btn-violet:disabled{background:#3a3552; color:#75708e; cursor:not-allowed;}
+  .btn-ghost{background:transparent; border:1px solid var(--line); color:var(--text);}
+
+  .generator{
+    margin:18px 16px 0;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:18px;
+  }
+  .generator h2{font-size:15px; margin-bottom:4px;}
+  .generator .hint{font-size:12px; color:var(--muted); margin-bottom:14px;}
+  textarea{
+    width:100%;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--text);
+    padding:12px;
+    font-size:13px;
+    font-family:inherit;
+    resize:vertical;
+    min-height:80px;
+  }
+  textarea:focus{outline:2px solid var(--violet); outline-offset:1px;}
+
+  .options-row{
+    display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;
+  }
+  .option-chip{
+    font-size:11px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    color:var(--muted);
+    padding:6px 10px;
+    border-radius:20px;
+    cursor:pointer;
+  }
+  .option-chip.active{
+    border-color:var(--violet);
+    color:var(--violet);
+    background:rgba(139,123,247,0.1);
+  }
+
+  .pay-row{
+    margin-top:16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:12px 14px;
+  }
+  .pay-row .price{font-size:13px; color:var(--muted);}
+  .pay-row .price strong{color:var(--amber); font-size:15px;}
+
+  .status{
+    margin-top:14px;
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.5;
+    display:none;
+  }
+  .status.show{display:block;}
+
+  .output{
+    margin:14px 16px 0;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:18px;
+    display:none;
+  }
+  .output.show{display:block;}
+  .output video{
+    width:100%;
+    border-radius:8px;
+    background:#000;
+  }
+  .output .badge{
+    display:inline-block;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    background:rgba(247,185,85,0.15);
+    color:var(--amber);
+    border:1px solid var(--amber);
+    border-radius:4px;
+    padding:3px 8px;
+    margin-bottom:10px;
+  }
+
+  .notice{
+    margin:18px 16px 0;
+    background:rgba(139,123,247,0.08);
+    border:1px solid var(--violet);
+    border-radius:8px;
+    padding:12px 14px;
+    font-size:12px;
+    line-height:1.5;
+    color:var(--muted);
+  }
+  .notice code{
+    background:var(--paper);
+    padding:1px 5px;
+    border-radius:4px;
+    color:var(--text);
+    font-size:11px;
+  }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <div class="wordmark">Reel<span>.</span></div>
+      <div class="header-sub">Turn a description into a short video</div>
+    </div>
+    <div class="pi-box" id="piBox">
+      <span class="pi-avatar">π</span>
+      <span id="piUsername">@Pioneer</span>
+    </div>
+  </div>
+
+  <div class="signin-card" id="signinCard">
+    <strong>Sign in to generate</strong>
+    <p>Connect your Pi account to pay for and create a video.</p>
+    <button class="btn btn-violet" onclick="signIn()">Sign in with Pi</button>
+  </div>
+
+  <div class="generator" id="generatorCard" style="display:none;">
+    <h2>Describe your video</h2>
+    <div class="hint">Be specific: subject, action, setting, mood.</div>
+    <textarea id="prompt" placeholder="A paper boat sailing across a rain-streaked window, soft morning light, slow motion"></textarea>
+
+    <div class="options-row">
+      <div class="option-chip active" data-len="4">4s</div>
+      <div class="option-chip" data-len="8">8s</div>
+      <div class="option-chip" data-len="12">12s</div>
+    </div>
+
+    <div class="pay-row">
+      <div class="price">Cost to generate <strong id="priceLabel">1 π</strong></div>
+      <button class="btn btn-violet" id="payBtn" onclick="payAndGenerate()">Pay & generate</button>
+    </div>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="output" id="output">
+    <span class="badge" id="outputBadge">Demo output</span>
+    <video id="video" controls></video>
+  </div>
+
+  <div class="notice">
+    Running in <strong>demo mode</strong>: payment is real (via Pi), but video generation uses a placeholder clip
+    because no video-generation API key is connected yet. To produce real AI videos from your prompts, get an API key
+    from a text-to-video provider (e.g. Runway, Luma, Pika, or a Replicate-hosted model) and add it where marked
+    <code>YOUR_VIDEO_API_KEY</code> in the script below, plus your endpoint URL in <code>VIDEO_API_ENDPOINT</code>.
+  </div>
+
+<script>
+  // ====== CONFIGURE YOUR REAL VIDEO API HERE ======
+  const VIDEO_API_ENDPOINT = ""; // e.g. "https://api.yourprovider.com/v1/generate"
+  const YOUR_VIDEO_API_KEY = ""; // your provider's API key
+  // If both are empty, the app runs in demo mode and returns a sample clip.
+  // =================================================
+
+  let selectedLength = 4;
+  let piAuth = null;
+  const PRICE_PI = 1; // price per generation, in Pi
+
+  document.querySelectorAll('.option-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.option-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      selectedLength = parseInt(chip.dataset.len, 10);
+    });
+  });
+
+  function signIn(){
+    if (typeof Pi === 'undefined') {
+      setStatusOnSignin('Pi SDK not available. Make sure this page is opened inside Pi Browser / Pi Desktop, not a regular browser tab.');
+      return;
+    }
+    setStatusOnSignin('Connecting to Pi… check for a sign-in prompt.');
+    Pi.init({ version: "2.0", sandbox: false }); // match your Developer Portal mode
+
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (!settled) {
+        setStatusOnSignin('No response from Pi after 10 seconds. The sign-in prompt may be blocked, or this page is not running inside an authorized Pi client.');
+      }
+    }, 10000);
+
+    Pi.authenticate(["username", "payments"], onIncompletePaymentFound)
+      .then(auth => {
+        settled = true;
+        clearTimeout(timeout);
+        piAuth = auth;
+        const username = (auth.user && auth.user.username) ? auth.user.username : "Pioneer";
+        document.getElementById('piUsername').textContent = "@" + username;
+        document.getElementById('piBox').style.display = 'flex';
+        document.getElementById('signinCard').style.display = 'none';
+        document.getElementById('generatorCard').style.display = 'block';
+      })
+      .catch(err => {
+        settled = true;
+        clearTimeout(timeout);
+        console.warn("Pi auth error:", err);
+        setStatusOnSignin('Sign-in failed: ' + (err && err.message ? err.message : 'unknown error') + '. Check the browser console for details.');
+      });
+  }
+
+  function setStatusOnSignin(msg){
+    let el = document.getElementById('signinStatus');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'signinStatus';
+      el.style.cssText = 'margin-top:12px;font-size:12px;color:var(--muted);line-height:1.5;';
+      document.getElementById('signinCard').appendChild(el);
+    }
+    el.textContent = msg;
+  }
+
+  function onIncompletePaymentFound(payment){
+    console.log("Incomplete payment found:", payment);
+  }
+
+  function setStatus(msg){
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
+  function payAndGenerate(){
+    const prompt = document.getElementById('prompt').value.trim();
+    if (!prompt){
+      setStatus('Write a description first.');
+      return;
+    }
+    if (!piAuth){
+      setStatus('Please sign in with Pi first.');
+      return;
+    }
+
+    const payBtn = document.getElementById('payBtn');
+    payBtn.disabled = true;
+    setStatus('Waiting for payment confirmation…');
+
+    Pi.createPayment({
+      amount: PRICE_PI,
+      memo: "Reel video generation",
+      metadata: { prompt, length: selectedLength }
+    }, {
+      onReadyForServerApproval: function(paymentId){
+        // In production: send paymentId to your backend to call /payments/{id}/approve
+        console.log("Ready for approval:", paymentId);
+      },
+      onReadyForServerCompletion: function(paymentId, txid){
+        // In production: send paymentId + txid to your backend to call /payments/{id}/complete
+        console.log("Ready for completion:", paymentId, txid);
+        setStatus('Payment confirmed. Generating your video…');
+        generateVideo(prompt, selectedLength).finally(() => { payBtn.disabled = false; });
+      },
+      onCancel: function(paymentId){
+        setStatus('Payment cancelled.');
+        payBtn.disabled = false;
+      },
+      onError: function(error, payment){
+        console.warn("Payment error:", error, payment);
+        setStatus('Payment failed. Please try again.');
+        payBtn.disabled = false;
+      }
+    });
+  }
+
+  async function generateVideo(prompt, length){
+    const output = document.getElementById('output');
+    const video = document.getElementById('video');
+    const badge = document.getElementById('outputBadge');
+
+    if (VIDEO_API_ENDPOINT && YOUR_VIDEO_API_KEY) {
+      // Real video-gen API call — adjust the request shape to match your provider's docs.
+      try {
+        const res = await fetch(VIDEO_API_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + YOUR_VIDEO_API_KEY
+          },
+          body: JSON.stringify({ prompt, duration_seconds: length })
+        });
+        const data = await res.json();
+        video.src = data.video_url; // adjust field name to match your provider's response
+        badge.textContent = "Generated";
+        output.classList.add('show');
+        setStatus('Video ready.');
+      } catch (err) {
+        console.error(err);
+        setStatus('Video generation failed. Check your API endpoint and key.');
+      }
+      return;
+    }
+
+    // ---- Demo mode: no real API connected, show a sample clip ----
+    await new Promise(r => setTimeout(r, 1500));
+    video.src = "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
+    badge.textContent = "Demo output — connect a video API for real generation";
+    output.classList.add('show');
+    setStatus('This is a placeholder clip. Add a video-generation API key above to generate real videos from your prompt: "' + prompt + '"');
+  }
+</script>
+</body>
+</html>
